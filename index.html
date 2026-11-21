@@ -54,10 +54,10 @@
   .last { position: absolute; right: 12px; bottom: 10px; font-family: var(--mono); font-size: 0.8rem; color: var(--stage-ink);
     max-width: 60%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 
-  .controls { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: end;
+  .controls { display: flex; justify-content: center;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
   .pad { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-  .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; max-width: 520px; }
   button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--key); color: var(--fg);
     padding: 9px 6px; min-width: 0; }
   button:hover { background: var(--key-hover); }
@@ -71,7 +71,6 @@
   .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
 
   @media (max-width: 620px) {
-    .controls { grid-template-columns: 1fr; }
     .actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .actions button { padding-inline: 4px; }
     .hint { display: none; }
@@ -102,18 +101,11 @@
   </div>
 
   <div class="controls">
-    <div>
-      <div class="label">Face turns (standard notation)</div>
-      <div class="pad" id="pad"></div>
-    </div>
-    <div>
-      <div class="label">Puzzle</div>
-      <div class="actions">
-        <button id="scramble" class="primary">Scramble</button>
-        <button id="solve">Solve</button>
-        <button id="undo">Undo</button>
-        <button id="reset">Reset</button>
-      </div>
+    <div class="actions">
+      <button id="scramble" class="primary">Scramble</button>
+      <button id="solve">Solve</button>
+      <button id="undo">Undo</button>
+      <button id="reset">Reset</button>
     </div>
   </div>
 </div>
@@ -427,16 +419,6 @@
     enqueue({ axis, layer, dir: prime ? -cw : cw }, { user: true });
   }
 
-  // --- Notation pad ---
-  const pad = document.getElementById('pad');
-  const hex = n => '#' + n.toString(16).padStart(6, '0');
-  [false, true].forEach(prime => ['U', 'D', 'F', 'B', 'L', 'R'].forEach(L => {
-    const b = document.createElement('button');
-    b.innerHTML = `<i style="background:${hex(FACE[L].color)}"></i>${L}${prime ? '′' : ''}`;
-    b.setAttribute('aria-label', `Turn ${L} face ${prime ? 'counter-clockwise' : 'clockwise'}`);
-    b.addEventListener('click', () => userTurn(L, prime));
-    pad.appendChild(b);
-  }));
   ui.scramble.addEventListener('click', doScramble);
   ui.solve.addEventListener('click', doSolve);
   ui.undo.addEventListener('click', doUndo);
