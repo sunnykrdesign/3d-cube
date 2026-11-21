@@ -53,10 +53,15 @@
   .last { position: absolute; right: 12px; bottom: 10px; font-family: var(--mono); font-size: 0.8rem; color: var(--stage-ink);
     max-width: 60%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 
-  .controls { display: flex; justify-content: center;
+  .controls { display: flex; justify-content: center; flex-wrap: wrap; align-items: center; gap: 12px 28px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
   .pad { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-  .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; max-width: 520px; }
+  .actions { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 6px; flex: 1 1 360px; max-width: 520px; }
+  .shuffle { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 12px; flex: 0 1 300px; min-width: 0; }
+  .shuffle label { grid-column: 1 / -1; font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .shuffle input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); margin: 0; }
+  .shuffle output { grid-column: 1; grid-row: 2; font-family: var(--mono); font-size: 0.82rem; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 17ch; }
+  .shuffle input[type=range] { grid-column: 2; grid-row: 2; }
   button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--key); color: var(--fg);
     padding: 9px 6px; min-width: 0; }
   button:hover { background: var(--key-hover); }
@@ -99,8 +104,13 @@
   </div>
 
   <div class="controls">
+    <div class="shuffle">
+      <label for="intensity">Shuffle intensity</label>
+      <output id="intensity-out" for="intensity">12 turns · Medium</output>
+      <input type="range" id="intensity" min="1" max="30" step="1" value="12" aria-describedby="intensity-out">
+    </div>
     <div class="actions">
-      <button id="scramble" class="primary">Scramble</button>
+      <button id="scramble" class="primary">Random shuffle</button>
       <button id="solve">Solve</button>
       <button id="undo">Undo</button>
       <button id="reset">Reset</button>
@@ -356,7 +366,7 @@
       scrambled = false;
       setStatus('solved', timerEnd ? 'Solved!' : 'Solved');
     } else {
-      setStatus('scrambled', 'Scrambled');
+      setStatus('scrambled', 'Shuffled');
     }
   }
   function setStatus(cls, text) { ui.status.className = 'pill ' + cls; ui.status.textContent = text; }
@@ -364,7 +374,7 @@
   function refresh() {
     ui.moves.textContent = userMoves;
     const b = !!(auto || queue.length > 1);
-    ui.scramble.disabled = b; ui.solve.disabled = b || !history.length; ui.undo.disabled = b || !history.length; ui.reset.disabled = b;
+    ui.scramble.disabled = b; document.getElementById('intensity').disabled = b; ui.solve.disabled = b || !history.length; ui.undo.disabled = b || !history.length; ui.reset.disabled = b;
     document.querySelectorAll('.pad button').forEach(x => x.disabled = b);
   }
   function fmt(ms) {
@@ -377,7 +387,8 @@
     if (busy()) return;
     const axes = ['x', 'y', 'z'];
     let prev = null;
-    for (let i = 0; i < 22; i++) {
+    const turns = Number(document.getElementById('intensity').value) || 12;
+    for (let i = 0; i < turns; i++) {
       let axis; do { axis = axes[Math.floor(Math.random() * 3)]; } while (axis === prev);
       prev = axis;
       enqueue({ axis, layer: Math.random() < 0.5 ? -1 : 1, dir: Math.random() < 0.5 ? -1 : 1 }, { speed: 85 });
@@ -386,7 +397,7 @@
     timing = false; timerEnd = 0; timerStart = 0; userMoves = 0;
     ui.time.textContent = fmt(0); ui.last.textContent = '';
     afterAuto = () => { scrambled = true; checkSolved(); refresh(); };
-    setStatus('', 'Scrambling…');
+    setStatus('', 'Shuffling…');
     refresh();
   }
   function doSolve() {
@@ -420,6 +431,21 @@
   }
 
   ui.scramble.addEventListener('click', doScramble);
+
+  // Shuffle intensity: how many random turns a shuffle makes.
+  const intensity = document.getElementById('intensity'), intensityOut = document.getElementById('intensity-out');
+  const level = n => n <= 5 ? 'Easy' : n <= 13 ? 'Medium' : n <= 22 ? 'Hard' : 'Expert';
+  function showIntensity() {
+    const n = Number(intensity.value);
+    intensityOut.textContent = `${n} ${n === 1 ? 'turn' : 'turns'} · ${level(n)}`;
+    intensity.setAttribute('aria-valuetext', intensityOut.textContent);
+  }
+  try { const saved = localStorage.getItem('twisty-intensity'); if (saved) intensity.value = saved; } catch (err) { /* storage unavailable */ }
+  showIntensity();
+  intensity.addEventListener('input', () => {
+    showIntensity();
+    try { localStorage.setItem('twisty-intensity', intensity.value); } catch (err) { /* storage unavailable */ }
+  });
   ui.solve.addEventListener('click', doSolve);
   ui.undo.addEventListener('click', doUndo);
   ui.reset.addEventListener('click', doReset);
