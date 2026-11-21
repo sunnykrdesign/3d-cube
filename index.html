@@ -148,6 +148,9 @@
   key.shadow.radius = 9;
   key.shadow.bias = -0.0004;
   scene.add(key);
+  const under = new THREE.DirectionalLight(0xffffff, 0.6);   // lights the bottom face when you look from below
+  under.position.set(-2, -8, 3);
+  scene.add(under);
 
   const floorMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, envMapIntensity: 0.35 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), floorMat);
@@ -169,8 +172,8 @@
   function applyEnv(name) {
     const e = ENVS[name] || ENVS.studio;
     const bg = srgb(e.bg);
-    scene.background = bg;
-    scene.fog = new THREE.Fog(bg, e.fog[0], e.fog[1]);
+    scene.background = new THREE.Color(e.bg);   // the clear colour is not gamma-encoded, so use the hex as-is
+    scene.fog = null;
     floorMat.color.copy(bg);
     key.color.copy(srgb(e.key)); key.intensity = e.keyI; hemi.intensity = e.hemi;
 
@@ -178,9 +181,9 @@
     studio.add(new THREE.Mesh(new THREE.BoxGeometry(30, 30, 30),
       new THREE.MeshBasicMaterial({ color: srgb(e.room), side: THREE.BackSide })));
     const tint = srgb(e.key);
-    [[9, 9, [4, 12, 6]], [10, 6, [-13, 4, 3]], [8, 4, [6, 1, 13]]].forEach(([w, h, pos], i) => {
+    [[9, 9, [4, 12, 6]], [10, 6, [-13, 4, 3]], [8, 4, [6, 1, 13]], [10, 10, [-3, -12, 5]]].forEach(([w, h, pos], i) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({
-        color: tint.clone().multiplyScalar(e.boxes[i]), side: THREE.DoubleSide }));
+        color: tint.clone().multiplyScalar(e.boxes[i] ?? 1.4), side: THREE.DoubleSide }));
       m.position.set(...pos); m.lookAt(0, 0, 0); studio.add(m);
     });
     const next = pmrem.fromScene(studio, 0.035).texture;
