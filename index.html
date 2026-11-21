@@ -58,6 +58,7 @@
   .pad { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   .actions { display: flex; gap: 6px; flex: 1 1 240px; max-width: 520px; }
   .actions button { flex: 1 1 0; }
+  .shuffle[hidden], .actions button[hidden] { display: none; }
   .shuffle { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 12px; flex: 0 1 300px; min-width: 0; }
   .shuffle label { grid-column: 1 / -1; font-family: var(--mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
   .shuffle input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); margin: 0; }
