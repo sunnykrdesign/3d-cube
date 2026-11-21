@@ -41,7 +41,6 @@
   .stage { position: relative; min-height: 0; border-radius: 14px; overflow: hidden; background: var(--stage-bg, #d9dbe0);
     --stage-ink: #4a505b; --chip-bg: rgba(255,255,255,0.72); --chip-on: #16181d; --chip-on-ink: #fff; }
   .stage[data-env="night"] { --stage-ink: #b4bbc7; --chip-bg: rgba(20,22,27,0.6); --chip-on: #eceef2; --chip-on-ink: #16181d; }
-  .stage[data-env="sunset"] { --stage-ink: #6a4632; --chip-bg: rgba(255,244,234,0.7); --chip-on: #4a2c1c; --chip-on-ink: #fff; }
   .envs { position: absolute; top: 10px; left: 10px; display: flex; gap: 4px; padding: 3px; border-radius: 10px;
     background: var(--chip-bg); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   .envs button { border: 0; background: transparent; color: var(--stage-ink); font-size: 0.75rem; font-weight: 500;
@@ -94,7 +93,6 @@
     <div class="envs" role="group" aria-label="Environment">
       <button type="button" data-env="studio" aria-pressed="true">Studio</button>
       <button type="button" data-env="night" aria-pressed="false">Night</button>
-      <button type="button" data-env="sunset" aria-pressed="false">Sunset</button>
     </div>
     <div class="hint">Keys: U D L R F B M E S turn a layer, hold Shift for the counter-clockwise turn. Ctrl+Z undoes.</div>
     <div class="last" id="last"></div>
@@ -164,7 +162,6 @@
   const ENVS = {
     studio: { bg: 0xd9dbe0, room: 0x8e9198, boxes: [5, 1.6, 1.2], key: 0xffffff, keyI: 1.15, hemi: 0.15, fog: [13, 32] },
     night:  { bg: 0x1f2229, room: 0x30333b, boxes: [4, 0.9, 1.4], key: 0xcfdcff, keyI: 1.0,  hemi: 0.08, fog: [12, 28] },
-    sunset: { bg: 0xeec7a6, room: 0x9b7a66, boxes: [5, 1.4, 1.6], key: 0xffd2a3, keyI: 1.2,  hemi: 0.18, fog: [13, 30] },
   };
   const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa0aa, 0.15);
   scene.add(hemi);
