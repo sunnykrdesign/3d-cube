@@ -38,11 +38,20 @@
   .pill.solved { color: var(--good); border-color: var(--good); }
   .pill.scrambled { color: var(--accent); border-color: var(--accent); }
 
-  .stage { position: relative; min-height: 0; }
+  .stage { position: relative; min-height: 0; border-radius: 14px; overflow: hidden; background: var(--stage-bg, #d9dbe0);
+    --stage-ink: #4a505b; --chip-bg: rgba(255,255,255,0.72); --chip-on: #16181d; --chip-on-ink: #fff; }
+  .stage[data-env="night"] { --stage-ink: #b4bbc7; --chip-bg: rgba(20,22,27,0.6); --chip-on: #eceef2; --chip-on-ink: #16181d; }
+  .stage[data-env="sunset"] { --stage-ink: #6a4632; --chip-bg: rgba(255,244,234,0.7); --chip-on: #4a2c1c; --chip-on-ink: #fff; }
+  .envs { position: absolute; top: 10px; left: 10px; display: flex; gap: 4px; padding: 3px; border-radius: 10px;
+    background: var(--chip-bg); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .envs button { border: 0; background: transparent; color: var(--stage-ink); font-size: 0.75rem; font-weight: 500;
+    padding: 5px 10px; border-radius: 7px; }
+  .envs button:hover { background: transparent; text-decoration: underline; }
+  .envs button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); text-decoration: none; }
   #view { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; display: block; }
   #view.turning { cursor: grabbing; }
-  .hint { position: absolute; left: 0; bottom: 4px; font-size: 0.75rem; color: var(--muted); pointer-events: none; max-width: 36ch; }
-  .last { position: absolute; right: 0; bottom: 4px; font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
+  .hint { position: absolute; left: 12px; bottom: 10px; font-size: 0.75rem; color: var(--stage-ink); pointer-events: none; max-width: 36ch; }
+  .last { position: absolute; right: 12px; bottom: 10px; font-family: var(--mono); font-size: 0.8rem; color: var(--stage-ink);
     max-width: 60%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 
   .controls { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: end;
@@ -81,8 +90,13 @@
     </div>
   </header>
 
-  <div class="stage">
+  <div class="stage" id="stage" data-env="studio">
     <canvas id="view" aria-label="3D puzzle cube. Drag a sticker to turn its layer, drag the background to rotate the view."></canvas>
+    <div class="envs" role="group" aria-label="Environment">
+      <button type="button" data-env="studio" aria-pressed="true">Studio</button>
+      <button type="button" data-env="night" aria-pressed="false">Night</button>
+      <button type="button" data-env="sunset" aria-pressed="false">Sunset</button>
+    </div>
     <div class="hint">Keys: U D L R F B M E S turn a layer, hold Shift for the counter-clockwise turn. Ctrl+Z undoes.</div>
     <div class="last" id="last"></div>
   </div>
@@ -121,7 +135,7 @@
   };
 
   const canvas = document.getElementById('view');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.shadowMap.enabled = true;
@@ -132,21 +146,7 @@
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
   const orbit = { theta: 0.684, phi: 1.02, r: 10.5 };   // same viewpoint as the Blender camera
 
-  // Studio reflections: a soft grey room with two light panels, baked into an environment map,
-  // standing in for the area lights and world of the Blender scene.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const studio = new THREE.Scene();
-  studio.add(new THREE.Mesh(new THREE.BoxGeometry(30, 30, 30),
-    new THREE.MeshBasicMaterial({ color: srgb(0x8e9198), side: THREE.BackSide })));
-  function softbox(w, h, pos, power) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(power, power, power), side: THREE.DoubleSide }));
-    m.position.set(...pos); m.lookAt(0, 0, 0); studio.add(m);
-  }
-  softbox(9, 9, [4, 12, 6], 5);       // key, above front-right like Blender's key light
-  softbox(10, 6, [-13, 4, 3], 1.6);   // fill from the left
-  softbox(8, 4, [6, 1, 13], 1.2);     // low front kicker for the sticker highlights
-  scene.environment = pmrem.fromScene(studio, 0.035).texture;
 
   const key = new THREE.DirectionalLight(0xffffff, 1.15);
   key.position.set(3, 8, 4);
@@ -156,13 +156,57 @@
   key.shadow.radius = 9;
   key.shadow.bias = -0.0004;
   scene.add(key);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0aa, 0.15));
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.22 }));
+  const floorMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, envMapIntensity: 0.35 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -1.56;                               // same floor height as the Blender scene
   floor.receiveShadow = true;
   scene.add(floor);
+
+  // --- Environments: a seamless studio floor that fades into a matching backdrop (fog),
+  // plus the reflections the pieces pick up. Each one is a small light room baked to an env map.
+  const ENVS = {
+    studio: { bg: 0xd9dbe0, room: 0x8e9198, boxes: [5, 1.6, 1.2], key: 0xffffff, keyI: 1.15, hemi: 0.15, fog: [13, 32] },
+    night:  { bg: 0x1f2229, room: 0x30333b, boxes: [4, 0.9, 1.4], key: 0xcfdcff, keyI: 1.0,  hemi: 0.08, fog: [12, 28] },
+    sunset: { bg: 0xeec7a6, room: 0x9b7a66, boxes: [5, 1.4, 1.6], key: 0xffd2a3, keyI: 1.2,  hemi: 0.18, fog: [13, 30] },
+  };
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x9aa0aa, 0.15);
+  scene.add(hemi);
+  let envTex = null;
+  function applyEnv(name) {
+    const e = ENVS[name] || ENVS.studio;
+    const bg = srgb(e.bg);
+    scene.background = bg;
+    scene.fog = new THREE.Fog(bg, e.fog[0], e.fog[1]);
+    floorMat.color.copy(bg);
+    key.color.copy(srgb(e.key)); key.intensity = e.keyI; hemi.intensity = e.hemi;
+
+    const studio = new THREE.Scene();
+    studio.add(new THREE.Mesh(new THREE.BoxGeometry(30, 30, 30),
+      new THREE.MeshBasicMaterial({ color: srgb(e.room), side: THREE.BackSide })));
+    const tint = srgb(e.key);
+    [[9, 9, [4, 12, 6]], [10, 6, [-13, 4, 3]], [8, 4, [6, 1, 13]]].forEach(([w, h, pos], i) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({
+        color: tint.clone().multiplyScalar(e.boxes[i]), side: THREE.DoubleSide }));
+      m.position.set(...pos); m.lookAt(0, 0, 0); studio.add(m);
+    });
+    const next = pmrem.fromScene(studio, 0.035).texture;
+    scene.environment = next;
+    if (envTex) envTex.dispose();
+    envTex = next;
+    studio.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+
+    const stage = document.getElementById('stage');
+    stage.dataset.env = name;
+    stage.style.setProperty('--stage-bg', '#' + e.bg.toString(16).padStart(6, '0'));
+    document.querySelectorAll('.envs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.env === name)));
+    try { localStorage.setItem('twisty-env', name); } catch (err) { /* storage unavailable */ }
+  }
+  let startEnv = 'studio';
+  try { startEnv = localStorage.getItem('twisty-env') || 'studio'; } catch (err) { /* storage unavailable */ }
+  applyEnv(ENVS[startEnv] ? startEnv : 'studio');
+  document.querySelectorAll('.envs button').forEach(b => b.addEventListener('click', () => applyEnv(b.dataset.env)));
 
   // Soft contact shadow under the cube, like the area-light shadow in the Blender render.
   const blob = document.createElement('canvas');
@@ -436,7 +480,7 @@
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (drag.mode === 'orbit') {
       orbit.theta -= dx * 0.008;
-      orbit.phi = Math.min(2.7, Math.max(0.25, orbit.phi - dy * 0.008));
+      orbit.phi = Math.min(1.68, Math.max(0.25, orbit.phi - dy * 0.008));
       drag.x = e.clientX; drag.y = e.clientY;
       return;
     }
